@@ -138,6 +138,8 @@ public class GerritTrigger extends Trigger<Job> {
     private Integer gerritBuildAbortedVerifiedValue;
     private Integer gerritBuildAbortedCodeReviewValue;
     private boolean silentMode;
+    private BuildCancellationPolicy localBuildCancellationPolicy;
+
     @Deprecated
     private transient boolean enableTopicAssociation = Config.DEFAULT_ENABLE_TOPIC_ASSOCIATION;
     private TopicAssociation topicAssociation;
@@ -1992,6 +1994,39 @@ public class GerritTrigger extends Trigger<Job> {
     @CheckForNull
     public TopicAssociation getTopicAssociation() {
         return topicAssociation;
+    }
+
+    /**
+     * DataBoundSetter for localBuildCancellationPolicy.
+     * Used for jelly file.
+     *
+     * @param localBuildCancellationPolicy the BuildCancellationPolicy object.
+     */
+    @DataBoundSetter
+    public void setLocalBuildCancellationPolicy(final BuildCancellationPolicy localBuildCancellationPolicy) {
+        this.localBuildCancellationPolicy = localBuildCancellationPolicy;
+    }
+
+    /**
+     * Returns the assigned BuildCancellationPolicy object.
+     * Used for jelly file.
+     *
+     * @return localBuildCancellationPolicy object
+     */
+    @CheckForNull
+    public BuildCancellationPolicy getLocalBuildCancellationPolicy() {
+        return localBuildCancellationPolicy;
+    }
+
+    /**
+     * Check local policy has been configured.
+     *
+     * @return ture if so
+     */
+    @CheckForNull
+    public boolean isLocalBuildCancellationPolicyConfigured() {
+        return this.localBuildCancellationPolicy != null
+               && this.localBuildCancellationPolicy.isEnabled();
     }
 
     /**

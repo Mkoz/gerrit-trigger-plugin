@@ -102,7 +102,7 @@ public class RunningJobs {
            return;
        }
 
-       BuildCancellationPolicy serverBuildCurrentPatchesOnly = serverConfig.getBuildCurrentPatchesOnly();
+       BuildCancellationPolicy serverBuildCurrentPatchesOnly = getCancellationPolicy(serverConfig);
        if (!serverBuildCurrentPatchesOnly.isEnabled()
                || (event instanceof ManualPatchsetCreated
                && !serverBuildCurrentPatchesOnly.isAbortManualPatchsets())) {
@@ -111,6 +111,21 @@ public class RunningJobs {
        }
 
        this.cancelOutDatedEvents(event, serverBuildCurrentPatchesOnly, getJob().getFullName());
+   }
+
+   /**
+    *
+    * @param config server config to be able check global policy
+    * @return policy for project cancellation
+    */
+   private BuildCancellationPolicy getCancellationPolicy(IGerritHudsonTriggerConfig config) {
+      if (trigger.isLocalBuildCancellationPolicyConfigured()
+          && config.getBuildCurrentPatchesOnly() != null
+          && config.getBuildCurrentPatchesOnly().isEnabled()) {
+         return trigger.getLocalBuildCancellationPolicy();
+      } else {
+         return config.getBuildCurrentPatchesOnly();
+      }
    }
 
    /**
@@ -187,10 +202,6 @@ public class RunningJobs {
        boolean shouldCancelManual = (!(runningChangeBasedEvent instanceof ManualPatchsetCreated)
                || policy.isAbortManualPatchsets());
 
-       if (!abortBecauseOfTopic && !shouldCancelManual) {
-           return true;
-       }
-
        boolean shouldCancelPatchsetNumber = policy.isAbortNewPatchsets()
                || Integer.parseInt(runningChangeBasedEvent.getPatchSet().getNumber())
                < Integer.parseInt(event.getPatchSet().getNumber());
@@ -198,7 +209,7 @@ public class RunningJobs {
        boolean isAbortAbandonedPatchset = policy.isAbortAbandonedPatchsets()
                && (event instanceof ChangeAbandoned);
 
-       if (!abortBecauseOfTopic && !shouldCancelPatchsetNumber && !isAbortAbandonedPatchset) {
+       if (!abortBecauseOfTopic && !shouldCancelPatchsetNumber && !isAbortAbandonedPatchset && !shouldCancelManual) {
            return true;
        }
 
