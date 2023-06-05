@@ -497,7 +497,7 @@ public class SpecGerritTriggerHudsonTest {
     @Test
     @LocalData
     public void testBuildLatestPatchsetOnlyAbortNeitherManualNorNew() throws Exception {
-        buildLatestPatchsetOnlyAndReport(false, false, Result.SUCCESS, Result.SUCCESS, Result.SUCCESS);
+        buildLatestPatchsetOnlyAndReport(false, false, Result.ABORTED, Result.SUCCESS, Result.SUCCESS);
     }
 
     /**
@@ -510,7 +510,7 @@ public class SpecGerritTriggerHudsonTest {
     @Test
     @LocalData
     public void testBuildLatestPatchsetOnlyAbortNew() throws Exception {
-        buildLatestPatchsetOnlyAndReport(false, true, Result.SUCCESS, Result.ABORTED, Result.SUCCESS);
+        buildLatestPatchsetOnlyAndReport(false, true, Result.ABORTED, Result.ABORTED, Result.SUCCESS);
     }
 
     /**

@@ -195,12 +195,8 @@ public class RunningJobs {
        boolean abortBecauseOfTopic = trigger.abortBecauseOfTopic(event, policy, runningChangeBasedEvent);
 
        Change change = runningChangeBasedEvent.getChange();
-       if (!abortBecauseOfTopic && !change.equals(event.getChange())) {
-           return true;
-       }
-
-       boolean shouldCancelManual = (!(runningChangeBasedEvent instanceof ManualPatchsetCreated)
-               || policy.isAbortManualPatchsets());
+       boolean shouldCancelManual = ((runningChangeBasedEvent instanceof ManualPatchsetCreated)
+               && policy.isAbortManualPatchsets());
 
        boolean shouldCancelPatchsetNumber = policy.isAbortNewPatchsets()
                || Integer.parseInt(runningChangeBasedEvent.getPatchSet().getNumber())
@@ -209,8 +205,15 @@ public class RunningJobs {
        boolean isAbortAbandonedPatchset = policy.isAbortAbandonedPatchsets()
                && (event instanceof ChangeAbandoned);
 
-       if (!abortBecauseOfTopic && !shouldCancelPatchsetNumber && !isAbortAbandonedPatchset && !shouldCancelManual) {
-           return true;
+       if (change.equals(event.getChange())) {
+            if (!abortBecauseOfTopic
+             && !shouldCancelPatchsetNumber
+             && !isAbortAbandonedPatchset
+             && !shouldCancelManual) {
+               return true;
+            }
+       } else if (!abortBecauseOfTopic) {
+          return true;
        }
 
        return false;
