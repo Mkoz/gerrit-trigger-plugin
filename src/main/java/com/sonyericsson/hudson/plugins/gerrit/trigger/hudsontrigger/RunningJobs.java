@@ -102,17 +102,33 @@ public class RunningJobs {
            return;
        }
 
-       BuildCancellationPolicy serverBuildCurrentPatchesOnly = serverConfig.getBuildCurrentPatchesOnly();
+       BuildCancellationPolicy serverBuildCurrentPatchesOnly = getCancelationPolicy(serverConfig);
        if (!serverBuildCurrentPatchesOnly.isEnabled()
                || (event instanceof ManualPatchsetCreated
                && !serverBuildCurrentPatchesOnly.isAbortManualPatchsets())) {
            runningJobs.add(event);
            return;
        }
-
+       logger.info("scheduled point_1");
        this.cancelOutDatedEvents(event, serverBuildCurrentPatchesOnly, getJob().getFullName());
    }
 
+
+   /**
+    * Checks scheduled job and cancels current jobs if needed.
+    * I.e. cancelling the old build if configured to do so and removing and storing any references.
+    * Only used by Server wide policy
+    *
+    * @param conf the event triggering a new build.
+    * @return BuildCancellationPolicy
+    */
+   public BuildCancellationPolicy getCancelationPolicy(IGerritHudsonTriggerConfig conf) {
+      if (trigger.getBuildCancellationPolicy() != null && trigger.getBuildCancellationPolicy().isEnabled()) {
+         return trigger.getBuildCancellationPolicy();
+      } else {
+         return conf.getBuildCurrentPatchesOnly();
+      }
+   }
    /**
     *
     * @param event event to check for
@@ -126,6 +142,7 @@ public class RunningJobs {
 
        synchronized (runningJobs) {
            Iterator<GerritTriggeredEvent> it = runningJobs.iterator();
+           logger.info("runningJobs: " + runningJobs);
            while (it.hasNext()) {
                GerritTriggeredEvent runningEvent = it.next();
                if (!(runningEvent instanceof ChangeBasedEvent)) {
@@ -133,19 +150,26 @@ public class RunningJobs {
                }
 
                ChangeBasedEvent runningChangeBasedEvent = ((ChangeBasedEvent)runningEvent);
+               logger.info("shouldIgnoreEvent:: new - " + event);
+               logger.info("shouldIgnoreEvent:: runningEvent - " + runningEvent);
                if (shouldIgnoreEvent(event, policy, runningChangeBasedEvent)) {
-                   continue;
+                logger.info("shouldIgnoreEvent: true");
+                 continue;
                }
+               logger.info("shouldIgnoreEvent: adding to outdatedEvents: " + runningChangeBasedEvent);
+
 
                outdatedEvents.add(runningChangeBasedEvent);
                it.remove();
            }
-
+           logger.info("outdatedEvents.size(): " + outdatedEvents.size());
            // add our new job
            if (!outdatedEvents.contains(event)) {
+            logger.info("Debug_2: " + outdatedEvents);
                if (trigger.isOnlyAbortRunningBuild(event)) {
                    cause = new AbandonedPatchsetInterruption();
                } else {
+                logger.info("Debug_3:  put event to running jobs");
                    runningJobs.add(event);
                }
            }
@@ -153,7 +177,7 @@ public class RunningJobs {
 
        // This step can't be done under the lock, because cancelling the jobs needs a lock on higher level.
        for (ChangeBasedEvent outdatedEvent : outdatedEvents) {
-           logger.debug("Cancelling build for " + outdatedEvent);
+           logger.info("Cancelling build for " + outdatedEvent);
            try {
                cancelMatchingJobs(outdatedEvent, jobName, cause);
            } catch (Exception e) {
@@ -224,16 +248,27 @@ public class RunningJobs {
     */
    private void cancelMatchingJobs(GerritTriggeredEvent event, String jobName, CauseOfInterruption cause) {
        try {
+            logger.info("event: " + event);
+            logger.info("jobName: " + jobName);
+            logger.info("cause: " + cause);
+
            if (!(this.job instanceof Queue.Task)) {
-               logger.error("Error canceling job. The job is not of type Task. Job name: " + getJob().getName());
+               logger.error("Error canceling job. The job is not of type Task. Job name: " + getJob().getFullName());
                return;
            }
 
            // Remove any jobs in the build queue.
            List<Queue.Item> itemsInQueue = Queue.getInstance().getItems((Queue.Task)getJob());
            for (Queue.Item item : itemsInQueue) {
+            logger.info("Queue item: " + item);
+            logger.info("Queue item.getCauses: " + item.getCauses());
+            logger.info("Queue iitem.task.getName(): " + item.task.getFullDisplayName().replace(" » ", "/"));
+
+
                if (checkCausedByGerrit(event, item.getCauses())) {
-                   if (jobName.equals(item.task.getName())) {
+                // getFullDisplayName() for complicated name looks like "name1 » name2 » name3 » nameN"
+                   if (jobName.equals(item.task.getFullDisplayName().replace(" » ", "/"))) {
+                        logger.info("Canceling queue");
                        Queue.getInstance().cancel(item);
                    }
                }
@@ -245,19 +280,25 @@ public class RunningJobs {
                for (Executor e : c.getAllExecutors()) {
                    Queue.Executable currentExecutable = e.getCurrentExecutable();
                    if (!(currentExecutable instanceof Run<?, ?>)) {
+                    logger.info("Continue_1");
+
                        continue;
                    }
 
                    Run<?, ?> run = (Run<?, ?>)currentExecutable;
                    if (!checkCausedByGerrit(event, run.getCauses())) {
+                    logger.info("Continue_2");
+
                        continue;
                    }
 
                    String runningJobName = run.getParent().getFullName();
                    if (!jobName.equals(runningJobName)) {
+                    logger.info("Continue_3");
+
                        continue;
                    }
-
+                   logger.info("Debug_1: interrupt: " + e);
                    e.interrupt(Result.ABORTED, cause);
                }
            }
@@ -276,15 +317,20 @@ public class RunningJobs {
     * @return true if the list of causes contains a {@link GerritCause}.
     */
    private boolean checkCausedByGerrit(GerritTriggeredEvent event, Collection<Cause> causes) {
+        logger.info("checkCausedByGerrit:: checking event: " + event);
+        logger.info("checkCausedByGerrit:: checking causes: " + causes);
+
        for (Cause c : causes) {
            if (!(c instanceof GerritCause)) {
                continue;
            }
            GerritCause gc = (GerritCause)c;
            if (gc.getEvent() == event) {
+            logger.info("checkCausedByGerrit::Return true due to gc.getEvent(): " + gc.getEvent());
                return true;
            }
        }
+       logger.info("checkCausedByGerrit:: return false");
        return false;
    }
 
