@@ -29,6 +29,11 @@
                <f:property field="buildCancellationPolicy"/>
            </f:optionalBlock>
 
+            <f:entry title="${%Diable BuildCurrentPatchesOnly feature}"  field="disableBuildCurrentPatchesOnly"
+                 help="/plugin/gerrit-trigger/trigger/help-GerritDisableBuildCurrentPatchesOnly.html">
+                <f:checkbox name="disableBuildCurrentPatchesOnly" default="false" checked="${instance.disableBuildCurrentPatchesOnly}"/>
+            </f:entry>
+
             <f:entry title="${%Commit message parameter}" field="commitMessageParameterMode">
                 <ff:enum default="BASE64"> <!-- TODO change to f when core dep >= 1.640 -->
                     ${it.toString()}

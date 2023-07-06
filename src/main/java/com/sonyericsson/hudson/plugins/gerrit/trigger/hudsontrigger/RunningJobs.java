@@ -152,8 +152,13 @@ public class RunningJobs {
                ChangeBasedEvent runningChangeBasedEvent = ((ChangeBasedEvent)runningEvent);
                logger.info("shouldIgnoreEvent:: new - " + event);
                logger.info("shouldIgnoreEvent:: runningEvent - " + runningEvent);
+               if (trigger.getDisableBuildCurrentPatchesOnly()) {
+                 logger.info("shouldIgnoreEvent: ignore event due to DisableBuildCurrentPatchesOnly flag");
+                 continue;
+
+               }
                if (shouldIgnoreEvent(event, policy, runningChangeBasedEvent)) {
-                logger.info("shouldIgnoreEvent: true");
+                 logger.info("shouldIgnoreEvent: true");
                  continue;
                }
                logger.info("shouldIgnoreEvent: adding to outdatedEvents: " + runningChangeBasedEvent);

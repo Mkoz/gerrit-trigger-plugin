@@ -138,6 +138,7 @@ public class GerritTrigger extends Trigger<Job> {
     private Integer gerritBuildAbortedVerifiedValue;
     private Integer gerritBuildAbortedCodeReviewValue;
     private boolean silentMode;
+    private boolean disableBuildCurrentPatchesOnly;
     @Deprecated
     private transient boolean enableTopicAssociation = Config.DEFAULT_ENABLE_TOPIC_ASSOCIATION;
     private TopicAssociation topicAssociation;
@@ -1934,6 +1935,25 @@ public class GerritTrigger extends Trigger<Job> {
      */
     public String getBuildUnsuccessfulFilepath() {
         return buildUnsuccessfulFilepath;
+    }
+
+    /**
+     * Condition to disable buildCurrentpatchsetOnly feature.
+     *
+     * @param disableBuildCurrentPatchesOnly true if disabled, false if enabled.
+     */
+    @DataBoundSetter
+    public void setDisableBuildCurrentPatchesOnly(boolean disableBuildCurrentPatchesOnly) {
+        this.disableBuildCurrentPatchesOnly = disableBuildCurrentPatchesOnly;
+    }
+
+    /**
+     * Disable all buildCurrentPatchesOnly configuration neither global and local.
+     *
+     * @return The unsuccessful message comment file path
+     */
+    public boolean getDisableBuildCurrentPatchesOnly() {
+        return disableBuildCurrentPatchesOnly;
     }
 
     /**
