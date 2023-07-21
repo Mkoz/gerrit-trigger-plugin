@@ -228,7 +228,7 @@ public final class EventListener implements GerritEventListener {
         if (!(event instanceof ChangeBasedEvent)) {
             return;
         }
-        logger.info("Debug_0: t.getJob().getFullName(): " + t.getJob().getFullName());
+        //logger.info("Debug_0: t.getJob().getFullName(): " + t.getJob().getFullName());
 
         ChangeBasedEvent changeBasedEvent = (ChangeBasedEvent)event;
  /*       if (t.getBuildCancellationPolicy() != null && t.getBuildCancellationPolicy().isEnabled()) {
@@ -238,6 +238,7 @@ public final class EventListener implements GerritEventListener {
         }
 */
         IGerritHudsonTriggerConfig serverConfig = getServerConfig(event);
+        //logger.info("Debug_serverConfig: " + serverConfig.getBuildCurrentPatchesOnly().isEnabled());
         if (serverConfig != null && (serverConfig.isGerritBuildCurrentPatchesOnly())) {
             logger.info("abortBuild - scheduled");
             t.getRunningJobs(t.getJob()).scheduled(changeBasedEvent);

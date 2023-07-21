@@ -74,7 +74,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
-//CS IGNORE MagicNumber FOR NEXT 920 LINES. REASON: Testdata.
+//CS IGNORE MagicNumber FOR NEXT 1200 LINES. REASON: Testdata.
 
 /**
  * Some full run-through tests from trigger to build finished.
@@ -756,6 +756,9 @@ public class SpecGerritTriggerHudsonTest {
     @Test
     @LocalData
     public void testTriggerScopedAbortLatestPatchsetOnly() throws Exception {
+        ((Config)gerritServer.getConfig())
+        .setBuildCurrentPatchesOnly(new BuildCancellationPolicy(false, false, false, false));
+
         Random rand = new Random();
         FreeStyleProject cancelProject = new TestUtils.JobBuilder(j).name("cancel-project" + rand.nextInt()).build();
         cancelProject.getBuildersList().add(new PrintToLogBuilder("Cancel project building."));
@@ -768,6 +771,8 @@ public class SpecGerritTriggerHudsonTest {
         GerritTrigger trigger = cancelProject.getTrigger(GerritTrigger.class);
         trigger.setBuildCancellationPolicy(new BuildCancellationPolicy(true, false, false, false));
         //serverMock.waitForCommand(GERRIT_STREAM_EVENTS, 2000);
+
+        ignoreProject.getTrigger(GerritTrigger.class).setDisableBuildCurrentPatchesOnly(true);
 
         PatchsetCreated firstEvent = Setup.createPatchsetCreated();
         firstEvent.getChange().setTopic("abc");
@@ -797,6 +802,8 @@ public class SpecGerritTriggerHudsonTest {
     @Test
     @LocalData
     public void testTriggerScopedMultipleAbortLatestPatchsetOnly() throws Exception {
+        ((Config)gerritServer.getConfig())
+        .setBuildCurrentPatchesOnly(new BuildCancellationPolicy(true, false, false, false));
         Random rand = new Random();
 
         FreeStyleProject cancelProject = new TestUtils.JobBuilder(j).name("cancel-project" + rand.nextInt()).build();
@@ -959,6 +966,9 @@ public class SpecGerritTriggerHudsonTest {
     @Test
     @LocalData
     public void testAbortAbandonedPatchset() throws Exception {
+        ((Config)gerritServer.getConfig())
+        .setBuildCurrentPatchesOnly(new BuildCancellationPolicy(true, false, false, false));
+
         Random rand = new Random();
         FreeStyleProject cancelProject = new TestUtils.JobBuilder(j).name("cancel-project" + rand.nextInt()).build();
         cancelProject.getBuildersList().add(new SleepBuilder(3000));
@@ -995,4 +1005,111 @@ public class SpecGerritTriggerHudsonTest {
         assertTrue(trigger.isInteresting(secondEvent));
         assertEquals(Result.ABORTED, cancelProject.getLastBuild().getResult());
     }
+       /**
+     * Tets localBuildCancellationPolicy.
+     *
+     * @throws Exception if so.
+     */
+    @Test
+    @LocalData
+    public void testLocalBuildCancellationPolicy() throws Exception {
+        ((Config)gerritServer.getConfig())
+        .setBuildCurrentPatchesOnly(new BuildCancellationPolicy(true, false, false, false));
+
+        final long sleepBuilderTimeout = 3000;
+        final int waitTimeout = 2000;
+        final int waitTimeoutMs = 20000;
+        Random rand = new Random();
+        FreeStyleProject cancelProject = new TestUtils.JobBuilder(j).name("cancel-project" + rand.nextInt()).build();
+        cancelProject.getBuildersList().add(new SleepBuilder(sleepBuilderTimeout));
+
+        BuildCancellationPolicy policy = new BuildCancellationPolicy(true, false, false, false);
+        GerritTrigger trigger = cancelProject.getTrigger(GerritTrigger.class);
+        trigger.setBuildCancellationPolicy(policy);
+
+        serverMock.waitForCommand(GERRIT_STREAM_EVENTS, waitTimeout);
+
+        PatchsetCreated firstEvent = Setup.createPatchsetCreated();
+        firstEvent.getPatchSet().setNumber("1");
+        firstEvent.getChange().setTopic("abc");
+        gerritServer.triggerEvent(firstEvent);
+        TestUtils.waitForNonManualBuildToStart(cancelProject, firstEvent, waitTimeoutMs);
+
+        ChangeAbandoned secondEvent = Setup.createChangeAbandoned();
+        secondEvent.setChange(firstEvent.getChange());
+        secondEvent.getPatchSet().setNumber("2");
+        gerritServer.triggerEvent(secondEvent);
+        j.waitUntilNoActivity();
+
+        assertEquals(Result.SUCCESS, cancelProject.getLastBuild().getResult());
+        assertFalse(trigger.isInteresting(secondEvent));
+
+        policy.setAbortAbandonedPatchsets(true);
+        trigger.setBuildCancellationPolicy(policy);
+
+        gerritServer.triggerEvent(firstEvent);
+        TestUtils.waitForNonManualBuildToStart(cancelProject, firstEvent, waitTimeoutMs);
+        gerritServer.triggerEvent(secondEvent);
+        j.waitUntilNoActivity();
+
+        assertTrue(trigger.isInteresting(secondEvent));
+        assertEquals(Result.ABORTED, cancelProject.getLastBuild().getResult());
+    }
+        /**
+     * Tets localBuildCancellationPolicy.
+     *
+     * Check local policy is priority.
+     *
+     * @throws Exception if so.
+     */
+    @Test
+    @LocalData
+    public void testLocalAndCommonBuildCancellationPolicyIsolation() throws Exception {
+        ((Config)gerritServer.getConfig())
+        .setBuildCurrentPatchesOnly(new BuildCancellationPolicy(true, false, false, false));
+        Random rand = new Random();
+        final long builderTimeout = 6000;
+        final int waitTimeout = 2000;
+        final int waitTimeoutMs = 10000;
+
+        FreeStyleProject cancelProject = new TestUtils.JobBuilder(j).name("cancel-project" + rand.nextInt()).build();
+        cancelProject.getBuildersList().add(new SleepBuilder(builderTimeout));
+        GerritTrigger trigger = cancelProject.getTrigger(GerritTrigger.class);
+        BuildCancellationPolicy globalPolicy = new BuildCancellationPolicy(true, false, false, false);
+        BuildCancellationPolicy localPolicy = new BuildCancellationPolicy(false, false, false, false);
+        localPolicy.setEnabled(true);
+        trigger.setBuildCancellationPolicy(globalPolicy);
+
+        FreeStyleProject successProject = new TestUtils.JobBuilder(j).name("success-project" + rand.nextInt()).build();
+        successProject.getBuildersList().add(new SleepBuilder(builderTimeout));
+
+        GerritTrigger trigger2 = successProject.getTrigger(GerritTrigger.class);
+        trigger2.setBuildCancellationPolicy(globalPolicy);
+        trigger2.setBuildCancellationPolicy(localPolicy);
+
+        serverMock.waitForCommand(GERRIT_STREAM_EVENTS, waitTimeout);
+
+        PatchsetCreated firstEvent = Setup.createPatchsetCreated();
+        firstEvent.getPatchSet().setNumber("3");
+        firstEvent.getChange().setTopic("abc");
+        gerritServer.triggerEvent(firstEvent);
+        TestUtils.waitForNonManualBuildToStart(cancelProject, firstEvent, waitTimeoutMs);
+        TestUtils.waitForNonManualBuildToStart(successProject, firstEvent, waitTimeoutMs);
+
+        PatchsetCreated secondEvent = Setup.createPatchsetCreated();
+        secondEvent.getPatchSet().setNumber("2");
+        secondEvent.getChange().setTopic("abc");
+        gerritServer.triggerEvent(secondEvent);
+
+        TestUtils.waitForBuilds(cancelProject, 2);
+        TestUtils.waitForBuilds(successProject, 2);
+
+        assertEquals(Result.ABORTED, cancelProject.getFirstBuild().getResult());
+        assertEquals(Result.SUCCESS, cancelProject.getBuildByNumber(2).getResult());
+
+        assertEquals(Result.SUCCESS, successProject.getFirstBuild().getResult());
+        assertEquals(Result.SUCCESS, successProject.getBuildByNumber(2).getResult());
+
+    }
 }
+
