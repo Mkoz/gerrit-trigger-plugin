@@ -234,7 +234,6 @@ public final class EventListener implements GerritEventListener {
         IGerritHudsonTriggerConfig serverConfig = getServerConfig(event);
 
         if (serverConfig != null && (serverConfig.isGerritBuildCurrentPatchesOnly())) {
-            logger.info("abortBuild - scheduled");
             t.getRunningJobs(t.getJob()).scheduled(changeBasedEvent);
         }
     }

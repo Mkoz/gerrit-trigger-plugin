@@ -109,7 +109,6 @@ public class RunningJobs {
            runningJobs.add(event);
            return;
        }
-       logger.info("scheduled point_1");
        this.cancelOutDatedEvents(event, serverBuildCurrentPatchesOnly, getJob().getFullName());
    }
 
@@ -154,7 +153,6 @@ public class RunningJobs {
 
                }
                if (shouldIgnoreEvent(event, policy, runningChangeBasedEvent)) {
-                 logger.info("shouldIgnoreEvent: true");
                  continue;
                }
 
